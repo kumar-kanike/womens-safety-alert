@@ -71,6 +71,29 @@ npm run preview
 ```
 Geolocation requires a secure context (HTTPS) in deployed environments; localhost is permitted by browsers.
 
+## GitHub Codespaces
+
+The frontend uses a same-origin Vite development proxy for API requests. In development it ignores `VITE_API_URL` and forwards `/api/*` to Django at `http://127.0.0.1:8000` from inside the Codespace. This avoids browser CORS and localhost-origin mistakes.
+
+Run the backend and frontend in separate terminals:
+
+```bash
+# Terminal 1
+cd backend
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
+```
+
+```bash
+# Terminal 2
+cd frontend
+npm ci
+npm run dev -- --host 0.0.0.0
+```
+
+Open the forwarded **5173** frontend port. Keep **8000** running; the browser does not need to call that port directly. Restart Vite after changing `vite.config.js`. SQLite remains the default; MySQL requires a separately provisioned server and credentials.
+
 ## API overview
 | Method | Endpoint | Authentication | Purpose |
 |---|---|---:|---|
