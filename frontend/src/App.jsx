@@ -7,16 +7,25 @@ const API = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || '').repl
 const emptyForm = { name: '', phone: '', relationship: '' }
 
 async function request(path, { token, ...options } = {}) {
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  })
+  let response
+  try {
+    response = await fetch(`${API}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    })
+  } catch {
+    throw new Error('Cannot reach the API. Check that the Django server is running on port 8000 and restart the Vite frontend so its API proxy is active.')
+  }
+
   const data = response.status === 204 ? null : await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data?.detail || Object.values(data || {}).flat().join(' ') || 'Request failed')
+  if (!response.ok) {
+    const details = data?.detail || Object.values(data || {}).flat().join(' ')
+    throw new Error(details || `API request failed (${response.status}). Check the Django terminal for the server error.`)
+  }
   return data
 }
 
