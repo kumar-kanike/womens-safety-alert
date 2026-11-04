@@ -95,7 +95,7 @@ Send the access token as `Authorization: Bearer <access-token>`.
 ```
 
 ## MySQL (optional)
-Install the MySQL development libraries required by `mysqlclient`, create a database, then set `DB_ENGINE=mysql`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` in `backend/.env`. Run migrations after changing the database.
+Create a MySQL database, then set `DB_ENGINE=mysql`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` in `backend/.env`. The included PyMySQL adapter is installed by the backend requirements. Run migrations after changing the database.
 
 ## Security and deployment checklist
 - Use HTTPS and a strong secret key; set `DJANGO_DEBUG=false`.
