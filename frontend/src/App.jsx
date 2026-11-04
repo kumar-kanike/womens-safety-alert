@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
-const API = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+// In development, always use the same-origin Vite proxy. This deliberately ignores
+// stale VITE_API_URL values left in local .env files in Codespaces.
+const API = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 const emptyForm = { name: '', phone: '', relationship: '' }
 
 async function request(path, { token, ...options } = {}) {
