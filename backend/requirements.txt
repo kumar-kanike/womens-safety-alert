@@ -5,4 +5,4 @@ django-cors-headers>=4.6,<5.0
 python-dotenv>=1.0,<2.0
 gunicorn>=23.0,<24.0
 whitenoise>=6.8,<7.0
-# Optional MySQL support: install mysqlclient separately with system build dependencies.
+PyMySQL>=1.1,<2.0
