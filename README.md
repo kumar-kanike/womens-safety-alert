@@ -1,132 +1,118 @@
 # SafeHer — Women's Safety Alert
 
-A full-stack safety-support prototype built with **React + Vite** and **Django REST Framework**. It lets a signed-in user manage trusted contacts, retrieve browser GPS coordinates, create SOS event records, and review saved alert history.
+SafeHer is a React + Node.js/Express + MySQL safety-support application. It allows a signed-in user to manage trusted contacts, retrieve browser GPS coordinates, save SOS event records, and review personal alert history.
 
-> **Important safety limitation:** this is a support prototype, not a monitored emergency-response service. Creating an SOS record does not notify police, emergency services, or contacts automatically. The browser may open the device's SMS app with a prepared message, but the user must review and send it. Do not rely on this app as your only emergency plan. In India, call **112** for immediate emergency assistance.
+> **Safety limitation:** this is a support prototype, not a monitored emergency-response service. Saving an SOS record does not notify police, emergency services, or contacts automatically. The browser may open the device SMS app with a prepared message, but the user must review and send it. Do not rely on this app as your only emergency plan. In India, call **112** for immediate emergency assistance.
 
 ## Features
-- Account registration and JWT sign-in.
-- Private emergency contacts (each account can access only its own contacts).
-- Add, edit and delete trusted contacts.
-- Browser geolocation with explicit permission.
+- Account registration and JWT access/refresh tokens.
+- Password hashing with bcrypt.
+- Private emergency contacts with add, edit, list and delete operations.
+- Browser geolocation with explicit user permission.
 - Authenticated SOS event creation and personal alert history.
-- Responsive dashboard and sign-out.
-- SQLite by default for local setup; optional MySQL configuration.
+- Parameterized SQL queries and user-scoped data access.
+- Responsive React dashboard and sign-out.
+- Aiven MySQL-compatible connection with TLS support.
+
+## Stack
+- Frontend: React 19 + Vite
+- Backend: Node.js + Express
+- Database: MySQL 8.4 (Aiven)
+- Authentication: JWT + bcrypt
+- Security: Helmet, CORS allow-list, rate limiting, input validation
 
 ## Project structure
 ```text
 .
 ├── backend/
-│   ├── accounts/
-│   ├── alerts/
-│   ├── contacts/
-│   ├── config/
-│   ├── manage.py
-│   ├── requirements.txt
-│   └── .env.example
+│   ├── server.js          # Express API; keeps the previous Django API routes
+│   ├── db.js              # MySQL pool and idempotent schema initialization
+│   ├── package.json
+│   ├── .env.example
+│   └── Procfile
 └── frontend/
     ├── src/
     ├── package.json
-    └── .env.example
+    └── vite.config.js
 ```
 
-## Requirements
-- Python 3.10+
-- Node.js 20.19+ or 22.12+
-- npm
+The old Django source files are retained in the repository as migration reference only. The active backend entry point is now `backend/server.js`; Python is not required to run the migrated API.
 
-## Run locally
+## 1. Configure Aiven MySQL
+Create an Aiven MySQL service and a database named `safeher_db`. Copy the service connection details from Aiven's **Connection information** page. Keep the password private.
 
-### Backend
+The service must allow connections from the backend deployment. Use the Aiven CA certificate when your hosting environment does not already trust the certificate chain.
+
+## 2. Run the backend
+Requirements: Node.js 20.19+ (or 22.12+) and npm.
+
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+npm install
 cp .env.example .env
-python manage.py makemigrations accounts contacts alerts
-python manage.py migrate
-python manage.py createsuperuser  # optional
-python manage.py runserver
 ```
-The API is available at `http://127.0.0.1:8000`; health check: `GET /`.
 
-Before production, set a unique random `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=false`, and explicit `DJANGO_ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`. Never commit your real `.env` file.
+Set these values in `backend/.env`:
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME=safeher_db`
+- `DB_SSL=true` for Aiven TLS
+- `JWT_SECRET`: a unique random secret of at least 32 characters
+- `CORS_ORIGIN`: your frontend origin
 
-### Frontend
-Open a second terminal:
+Start the API:
+
+```bash
+npm run dev
+```
+
+The API listens on port 5000 by default. On first successful startup it creates the `users`, `emergency_contacts`, and `emergency_alerts` tables if they do not already exist. It does not drop or overwrite existing tables.
+
+Health checks:
+- `GET /`
+- `GET /api/health` (also verifies the database connection)
+
+## 3. Run the React frontend
+Open another terminal:
+
 ```bash
 cd frontend
 npm install
-cp .env.example .env
-npm run dev
-```
-Open the Vite URL printed in the terminal (normally `http://localhost:5173`). Set `VITE_API_URL` in `frontend/.env` if the backend runs elsewhere.
-
-### Production frontend build
-```bash
-cd frontend
-npm run build
-npm run preview
-```
-Geolocation requires a secure context (HTTPS) in deployed environments; localhost is permitted by browsers.
-
-## GitHub Codespaces
-
-The frontend uses a same-origin Vite development proxy for API requests. In development it ignores `VITE_API_URL` and forwards `/api/*` to Django at `http://127.0.0.1:8000` from inside the Codespace. This avoids browser CORS and localhost-origin mistakes.
-
-Run the backend and frontend in separate terminals:
-
-```bash
-# Terminal 1
-cd backend
-python -m pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver 0.0.0.0:8000
-```
-
-```bash
-# Terminal 2
-cd frontend
-npm ci
 npm run dev -- --host 0.0.0.0
 ```
 
-Open the forwarded **5173** frontend port. Keep **8000** running; the browser does not need to call that port directly. Restart Vite after changing `vite.config.js`. SQLite remains the default; MySQL requires a separately provisioned server and credentials.
+The Vite development server proxies `/api/*` to `http://127.0.0.1:5000`. If your backend uses another address, set `BACKEND_PROXY_TARGET` in the frontend environment and restart Vite. Open the frontend's forwarded port (normally 5173) in Codespaces.
+
+Build check:
+
+```bash
+npm run build
+```
+
+Browser geolocation requires HTTPS when deployed; localhost is permitted.
 
 ## API overview
+The migrated Express API preserves the existing frontend's Django REST route shapes:
+
 | Method | Endpoint | Authentication | Purpose |
 |---|---|---:|---|
-| POST | `/api/accounts/register/` | No | Create account |
+| POST | `/api/accounts/register/` | No | Register an account |
 | POST | `/api/token/` | No | Obtain JWT access/refresh tokens |
 | POST | `/api/token/refresh/` | No | Refresh access token |
 | GET | `/api/accounts/profile/` | Yes | Current account |
 | GET, POST | `/api/contacts/` | Yes | List/create own contacts |
-| GET, PUT, PATCH, DELETE | `/api/contacts/{id}/` | Yes | Manage own contact |
+| GET, PUT, DELETE | `/api/contacts/{id}/` | Yes | Read/update/delete own contact |
 | POST | `/api/alerts/sos/` | Yes | Save an SOS event |
 | GET | `/api/alerts/history/` | Yes | List own SOS events |
 
-Send the access token as `Authorization: Bearer <access-token>`.
+Send access tokens as `Authorization: Bearer <access-token>`.
 
-## Example registration
-```json
-{
-  "username": "sampleuser",
-  "email": "sample@example.com",
-  "password": "Use-a-strong-password-123"
-}
-```
+## Security notes
+- Never commit `.env`, database passwords, JWT secrets, or CA private material.
+- Use HTTPS, a strong unique JWT secret, and exact production CORS origins.
+- Use Aiven TLS and restrict database network access to the backend host where practical.
+- All user-owned contacts and alerts are queried by authenticated user ID.
+- SOS records are not proof of message delivery or emergency-service notification.
+- Add a real, consent-based notification provider and test it separately before claiming that contacts are notified.
+- Define retention, account deletion, abuse prevention, backups, and incident-response policies before real-world use.
 
-## MySQL (optional)
-Create a MySQL database, then set `DB_ENGINE=mysql`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT` in `backend/.env`. The included PyMySQL adapter is installed by the backend requirements. Run migrations after changing the database.
-
-## Security and deployment checklist
-- Use HTTPS and a strong secret key; set `DJANGO_DEBUG=false`.
-- Set explicit allowed hosts and frontend CORS origins.
-- Configure a persistent production database and backups.
-- Add a verified SMS/notification provider before describing SOS as delivered. Keep provider credentials server-side; never place secrets in Vite variables.
-- Add consent, retention, deletion, abuse-prevention and incident-response policies before real-world use.
-- Test with your own controlled contacts and numbers. Never send test alerts to emergency services.
-
-## Current scope
-This repository records authenticated SOS events and location coordinates. It does **not** yet integrate SMS gateways, push notifications, live location tracking, police dispatch, or a staffed response center. SMS composition is device-dependent and is not proof of delivery.
+## Migration note
+The Django API routes and JSON shapes used by the existing React app were retained to minimize frontend changes. The active backend is Node.js/Express; the Django files remain temporarily for reference and can be removed after the migrated app is tested.
